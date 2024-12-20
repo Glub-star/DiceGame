@@ -11,6 +11,8 @@ white = (255, 255, 255)
 black = (0, 0, 0)
 grey = (200, 200, 200)
 light_grey = (170, 170, 170)
+blue = (0, 0, 255)
+red = (255, 0, 0)
 #endregion
 
 #region fonts
@@ -136,9 +138,34 @@ def character_selection():
     pygame.quit()
 
     pygame.quit()
+
+def map_screen():
+    map = Map()
+    running = True
+    while running:
+        screen.fill((0, 0, 0))  # Clear the screen
+        map.draw(screen)  # Draw the map
+        
+        # Handle events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if map.get_current_node().rect.collidepoint(event.pos):
+                    map.move_to_next()  # Move to the next room
+
+        pygame.display.flip()  # Update the screen
+
+    pygame.quit()
+
+
 #endregion
 
 #region map sht
+
+NODE_RADIUS = 30
+LINE_WIDTH = 4
+
 class Node:
     def __init__(self, x, y, room_type):
         self.x = x
@@ -148,15 +175,68 @@ class Node:
 
     def draw(self, screen, is_selected=False):
         # Draw room node (circle)
-        color = BLUE if not is_selected else RED
+        color = blue if not is_selected else red
         pygame.draw.circle(screen, color, (self.x, self.y), NODE_RADIUS)
         
         # Display the room type as text
         font = pygame.font.SysFont(None, 24)
-        text = font.render(self.room_type, True, WHITE)
+        text = font.render(self.room_type, True, white)
         screen.blit(text, (self.x - text.get_width() // 2, self.y - text.get_height() // 2))
+
+class Map:
+    def __init__(self):
+        self.layers = []
+        self.create_layers()
+        self.current_layer_index = 0
+        self.current_node_index = 0
+
+    def create_layers(self):
+        # Create multiple layers, each with random numbers of nodes
+        num_layers = 5
+        for i in range(num_layers):
+            num_nodes = random.randint(2, 5)  # Each layer has 2 to 5 nodes
+            layer = []
+            for j in range(num_nodes):
+                room_type = random.choice(['Event', 'Fight', 'Treasure'])  # Random room types
+                x = screen_height // 2 + random.randint(-100, 100)  # Random horizontal offset
+                y = (i + 1) * (screen_height // (num_layers + 1))  # Position layers vertically
+                layer.append(Node(x, y, room_type))
+            self.layers.append(layer)
+
+        def draw(self, screen):
+            for i, layer in enumerate(self.layers):
+                for j, node in enumerate(layer):
+                    is_selected = i == self.current_layer_index and j == self.current_node_index
+                    node.draw(screen, is_selected)
+                    
+                    # Draw lines connecting nodes within the same layer horizontally
+                    if j < len(layer) - 1:
+                        pygame.draw.line(screen, w, (layer[j].x, layer[j].y), 
+                                        (layer[j + 1].x, layer[j + 1].y), LINE_WIDTH)
+                    
+                    # Draw lines connecting nodes vertically between layers
+                    if i < len(self.layers) - 1:
+                        # Make sure there's a corresponding node in the next layer (same index j)
+                        if j < len(self.layers[i + 1]):  # Ensure the j-th node exists in the next layer
+                            pygame.draw.line(screen, white, (layer[j].x, layer[j].y), 
+                                            (self.layers[i + 1][j].x, self.layers[i + 1][j].y), LINE_WIDTH)
+
+    def move_to_next_layer(self):
+        if self.current_layer_index < len(self.layers) - 1:
+            self.current_layer_index += 1
+            self.current_node_index = 0  # Reset to the first node of the next layer
+            print(f"Moving to Layer {self.current_layer_index + 1}, Node {self.current_node_index + 1}: {self.layers[self.current_layer_index][self.current_node_index].room_type}")
+
+    def move_to_next_node(self):
+        # Move to the next node in the current layer
+        if self.current_node_index < len(self.layers[self.current_layer_index]) - 1:
+            self.current_node_index += 1
+            print(f"Moved to Node {self.current_node_index + 1}: {self.layers[self.current_layer_index][self.current_node_index].room_type}")
+
+    def get_current_node(self):
+        return self.layers[self.current_layer_index][self.current_node_index]
 
 #endregion
 
 
-character_selection()
+map_screen()
