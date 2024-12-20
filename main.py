@@ -103,7 +103,6 @@ def main_menu():
         # Update the display
         pygame.display.flip()
 
-
 def character_selection():
 
     def character_button(character):
@@ -137,6 +136,26 @@ def character_selection():
     pygame.quit()
 
     pygame.quit()
+#endregion
+
+#region map sht
+class Node:
+    def __init__(self, x, y, room_type):
+        self.x = x
+        self.y = y
+        self.room_type = room_type  # Event, Fight, Treasure, etc.
+        self.rect = pygame.Rect(x - NODE_RADIUS, y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2)
+
+    def draw(self, screen, is_selected=False):
+        # Draw room node (circle)
+        color = BLUE if not is_selected else RED
+        pygame.draw.circle(screen, color, (self.x, self.y), NODE_RADIUS)
+        
+        # Display the room type as text
+        font = pygame.font.SysFont(None, 24)
+        text = font.render(self.room_type, True, WHITE)
+        screen.blit(text, (self.x - text.get_width() // 2, self.y - text.get_height() // 2))
+
 #endregion
 
 
