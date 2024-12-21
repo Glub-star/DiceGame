@@ -152,7 +152,7 @@ def map_screen():
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if map.get_current_node().rect.collidepoint(event.pos):
-                    map.move_to_next()  # Move to the next room
+                    map.move_to_next_layer()  # Move to the next room
 
         pygame.display.flip()  # Update the screen
 
@@ -203,7 +203,7 @@ class Map:
                 layer.append(Node(x, y, room_type))
             self.layers.append(layer)
 
-        def draw(self, screen):
+    def draw(self, screen):
             for i, layer in enumerate(self.layers):
                 for j, node in enumerate(layer):
                     is_selected = i == self.current_layer_index and j == self.current_node_index
@@ -211,7 +211,7 @@ class Map:
                     
                     # Draw lines connecting nodes within the same layer horizontally
                     if j < len(layer) - 1:
-                        pygame.draw.line(screen, w, (layer[j].x, layer[j].y), 
+                        pygame.draw.line(screen, white, (layer[j].x, layer[j].y), 
                                         (layer[j + 1].x, layer[j + 1].y), LINE_WIDTH)
                     
                     # Draw lines connecting nodes vertically between layers
