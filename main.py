@@ -186,7 +186,9 @@ def create_nodes(current_node, max_nodes=3):
 
 def map_screen():
     start_node = Node(screen_width // 2, screen_height // 6)
-    nodes = [start_node]
+    first_node = Node(screen_width //2, screen_height //5)
+    start_node.connect(first_node)
+    nodes = [start_node, first_node]
 
     # Player's current node
     current_node = start_node
@@ -225,8 +227,5 @@ def map_screen():
         pygame.display.flip()
 
 #endregion
-
-
-# Make nodes render one after another, problem is only 1 node on screen so no new nodes can be clicked ← no new nodes can be created
 
 map_screen()
