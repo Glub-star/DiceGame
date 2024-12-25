@@ -21,12 +21,28 @@ font = pygame.font.SysFont("Arial", 40)
 
 #region Blueprints
 class Player():
+
     def __init__(self, health, name="Player"):
         self.health = health
         self.name = name
     
     def Take_Damage(self, damage):
+        damage = min(0, self.block - self.health)
         self.health -= damage
+
+class Enemy():
+    def __init__(self, name:str = "Enemy",  health:int = 20, damage:int = 5, block:int = 0, sprite:pygame.Surface = pygame.image.load("./assets/MissingTexture.png")):
+        self.name = name
+        self.health = health
+        self.damage = damage
+        self.block = block
+        self.sprite = sprite
+    def Take_Damage(self, damage:int):
+        damage = min(0, self.block - self.health)
+        self.health -= damage
+    def Turn(self, player:Player):
+        player.Take_Damage(self.damage)
+
 #endregion
 
 #region Dice Player
@@ -77,6 +93,8 @@ class Button:
 def main_menu():
     def start_game():
         print("Start Game")
+        charcater_type = None
+        character_selection(charcater_type)
         map = Map()
         map.map_loop()
 
@@ -107,12 +125,16 @@ def main_menu():
         # Update the display
         pygame.display.flip()
 
-def character_selection():
+def character_selection(character_selelected):
+    running = True
 
     def character_button(character):
+        nonlocal character_selelected
+        nonlocal running
         match character:
             case "Dice":
-                print("Dice player selected")
+                character_selelected = "Dice"
+                running = False
             case "Locked":
                 print("Player not available")
             case _:
@@ -121,8 +143,6 @@ def character_selection():
     dice_button = Button("Dice", 100, 200, 200, 50, action=lambda: character_button("Dice"))
     locked_button = Button("Locked", 100, 300, 200, 50,action= lambda: character_button("Locked"))
 
-    running = True
-    
     while running:
         screen.fill((255, 255, 255))
 
@@ -137,9 +157,7 @@ def character_selection():
 
         pygame.display.flip()  # Update the screen
 
-    pygame.quit()
 
-    pygame.quit()
 
 #endregion
 
@@ -177,6 +195,7 @@ class Map():
         self.nodes = nodes = [start_node, first_node]
         self.current_node = start_node
         self.current_node.color = (0, 255, 0)
+        self.visited_nodes = {start_node}
     
     def map_loop(self):
         running = True
@@ -187,10 +206,13 @@ class Map():
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
                     for node in self.nodes:
-                        if node.is_hovered(mouse_pos) and self.current_node.is_connected(node):
+                        if (node.is_hovered(mouse_pos) and
+                                self.current_node.is_connected(node) and
+                                node not in self.visited_nodes):
                             self.current_node.color = (255, 255, 255)
                             self.current_node = node
                             self.current_node.color = (0, 255, 0)
+                            self.visited_nodes.add(self.current_node)
                             new_nodes = create_nodes(self.current_node)
                             self.nodes.extend(new_nodes)
 
@@ -200,7 +222,7 @@ class Map():
 
             # Draw the nodes
             for node in self.nodes:
-                if node.is_hovered(mouse_pos) and self.current_node.is_connected(node):
+                if node.is_hovered(mouse_pos) and self.current_node.is_connected(node) and node not in self.visited_nodes:
                     node.color = (255, 0, 0)
                 elif node == self.current_node:
                     node.color = (0, 255, 0)
@@ -209,6 +231,7 @@ class Map():
                 node.draw(screen)
 
             pygame.display.flip()
+
 
 def create_nodes(current_node, max_nodes=3):
     level = current_node.level + 1
@@ -226,6 +249,15 @@ def create_nodes(current_node, max_nodes=3):
         new_nodes.append(new_node)
 
     return new_nodes
+
+#endregion
+
+#region enemy stuff
+
+class Slime(Enemy):
+    def __init__(self, name = "Slime", health = 20, damage = 5, block = 0):
+        super().__init__(name, health, damage, block)
+
 
 #endregion
 
