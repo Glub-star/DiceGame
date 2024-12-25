@@ -41,7 +41,7 @@ class DicePlayer(Player):
     def __init__(self, health, name="Player"):
         super().__init__(health, name)
         self.dice = [Dice() for _ in range(3)]
-    
+
 #endregion
 
 #region UI classes and methods
@@ -77,6 +77,8 @@ class Button:
 def main_menu():
     def start_game():
         print("Start Game")
+        map = Map()
+        map.map_loop()
 
     def quit_game():
         pygame.quit()
@@ -167,6 +169,47 @@ class Node:
     def is_connected(self, other_node):
         return other_node in self.connections
 
+class Map():
+    def __init__(self):
+        start_node = Node(screen_width // 2, screen_height // 6)
+        first_node = Node(screen_width //2, screen_height //5)
+        start_node.connect(first_node)
+        self.nodes = nodes = [start_node, first_node]
+        self.current_node = start_node
+        self.current_node.color = (0, 255, 0)
+    
+    def map_loop(self):
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    for node in self.nodes:
+                        if node.is_hovered(mouse_pos) and self.current_node.is_connected(node):
+                            self.current_node.color = (255, 255, 255)
+                            self.current_node = node
+                            self.current_node.color = (0, 255, 0)
+                            new_nodes = create_nodes(self.current_node)
+                            self.nodes.extend(new_nodes)
+
+            mouse_pos = pygame.mouse.get_pos()
+
+            screen.fill((0, 0, 0))  # Fill the screen with black
+
+            # Draw the nodes
+            for node in self.nodes:
+                if node.is_hovered(mouse_pos) and self.current_node.is_connected(node):
+                    node.color = (255, 0, 0)
+                elif node == self.current_node:
+                    node.color = (0, 255, 0)
+                else:
+                    node.color = (255, 255, 255)
+                node.draw(screen)
+
+            pygame.display.flip()
+
 def create_nodes(current_node, max_nodes=3):
     level = current_node.level + 1
     new_nodes = []
@@ -184,48 +227,6 @@ def create_nodes(current_node, max_nodes=3):
 
     return new_nodes
 
-def map_screen():
-    start_node = Node(screen_width // 2, screen_height // 6)
-    first_node = Node(screen_width //2, screen_height //5)
-    start_node.connect(first_node)
-    nodes = [start_node, first_node]
-
-    # Player's current node
-    current_node = start_node
-    current_node.color = (0, 255, 0)
-
-    # Main loop
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                for node in nodes:
-                    if node.is_hovered(mouse_pos) and current_node.is_connected(node):
-                        current_node.color = (255, 255, 255)
-                        current_node = node
-                        current_node.color = (0, 255, 0)
-                        new_nodes = create_nodes(current_node)
-                        nodes.extend(new_nodes)
-
-        mouse_pos = pygame.mouse.get_pos()
-
-        screen.fill((0, 0, 0))  # Fill the screen with black
-
-        # Draw the nodes
-        for node in nodes:
-            if node.is_hovered(mouse_pos) and current_node.is_connected(node):
-                node.color = (255, 0, 0)
-            elif node == current_node:
-                node.color = (0, 255, 0)
-            else:
-                node.color = (255, 255, 255)
-            node.draw(screen)
-
-        pygame.display.flip()
-
 #endregion
 
-map_screen()
+main_menu()
