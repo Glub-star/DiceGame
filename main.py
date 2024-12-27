@@ -1,54 +1,55 @@
-import pygame, random, sys
+import pygame
+import random
+import sys
 
+# Initialize Pygame
 pygame.init()
+
+# Screen dimensions
 screen_width = 800
 screen_height = 600
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("Main Menu")
 
-#region colours
+# Colors
 white = (255, 255, 255)
 black = (0, 0, 0)
 grey = (200, 200, 200)
 light_grey = (170, 170, 170)
 blue = (0, 0, 255)
 red = (255, 0, 0)
-#endregion
 
-#region fonts
+# Fonts
 font = pygame.font.SysFont("Arial", 40)
-#endregion
 
-#region Blueprints
-class Player():
-
+# Blueprints
+class Player:
     def __init__(self, health, name="Player"):
         self.health = health
         self.name = name
-    
-    def Take_Damage(self, damage):
-        damage = min(0, self.block - self.health)
-        self.health -= damage
 
-class Enemy():
-    def __init__(self, name:str = "Enemy",  health:int = 20, damage:int = 5, block:int = 0, sprite:pygame.Surface = pygame.image.load("./assets/MissingTexture.png")):
+    def take_damage(self, damage):
+        damage_taken = max(0, damage - self.block)
+        self.health -= damage_taken
+
+class Enemy:
+    def __init__(self, name="Enemy", health=20, damage=5, block=0, sprite=pygame.image.load("./assets/MissingTexture.png")):
         self.name = name
         self.health = health
         self.damage = damage
         self.block = block
         self.sprite = sprite
-    def Take_Damage(self, damage:int):
-        damage = min(0, self.block - self.health)
-        self.health -= damage
-    def Turn(self, player:Player):
-        player.Take_Damage(self.damage)
 
-#endregion
+    def take_damage(self, damage):
+        damage_taken = max(0, damage - self.block)
+        self.health -= damage_taken
 
-#region Dice Player
-class Dice():
+    def turn(self, player: Player):
+        player.take_damage(self.damage)
+
+class Dice:
     def __init__(self):
-        self.values = list(range(1,7))
+        self.values = list(range(1, 7))
 
     def roll(self):
         return random.choice(self.values)
@@ -58,9 +59,6 @@ class DicePlayer(Player):
         super().__init__(health, name)
         self.dice = [Dice() for _ in range(3)]
 
-#endregion
-
-#region UI classes and methods
 class Button:
     def __init__(self, text, x, y, width, height, inactive_color=grey, active_color=light_grey, action=None):
         self.text = text
@@ -87,26 +85,21 @@ class Button:
                 if self.action:
                     self.action()
 
-#endregion
-
-#region game screens
 def main_menu():
     def start_game():
         print("Start Game")
-        charcater_type = None
-        character_selection(charcater_type)
-        map = Map()
-        map.map_loop()
+        character_selected = None
+        character_selection(character_selected)
+        game_map = Map()
+        game_map.map_loop()
 
     def quit_game():
         pygame.quit()
         sys.exit()
 
-    # Create buttons
     start_button = Button("Start Game", 300, 200, 200, 50, grey, light_grey, start_game)
     quit_button = Button("Quit", 300, 300, 200, 50, grey, light_grey, quit_game)
 
-    # Main loop
     running = True
     while running:
         for event in pygame.event.get():
@@ -115,37 +108,31 @@ def main_menu():
             start_button.is_clicked(event)
             quit_button.is_clicked(event)
         
-        # Fill the screen with black
         screen.fill(black)
-        
-        # Draw buttons
         start_button.draw(screen)
         quit_button.draw(screen)
         
-        # Update the display
         pygame.display.flip()
 
-def character_selection(character_selelected):
+def character_selection(character_selected):
     running = True
 
     def character_button(character):
-        nonlocal character_selelected
+        nonlocal character_selected
         nonlocal running
-        match character:
-            case "Dice":
-                character_selelected = "Dice"
-                running = False
-            case "Locked":
-                print("Player not available")
-            case _:
-                print("Unexpected player type")
+        if character == "Dice":
+            character_selected = "Dice"
+            running = False
+        elif character == "Locked":
+            print("Player not available")
+        else:
+            print("Unexpected player type")
 
     dice_button = Button("Dice", 100, 200, 200, 50, action=lambda: character_button("Dice"))
-    locked_button = Button("Locked", 100, 300, 200, 50,action= lambda: character_button("Locked"))
+    locked_button = Button("Locked", 100, 300, 200, 50, action=lambda: character_button("Locked"))
 
     while running:
-        screen.fill((255, 255, 255))
-
+        screen.fill(white)
         dice_button.draw(screen)
         locked_button.draw(screen)
 
@@ -155,13 +142,8 @@ def character_selection(character_selelected):
             dice_button.is_clicked(event)
             locked_button.is_clicked(event)
 
-        pygame.display.flip()  # Update the screen
+        pygame.display.flip()
 
-
-
-#endregion
-
-#region map sht
 class Node:
     def __init__(self, x, y, level=0):
         self.x = x
@@ -176,10 +158,12 @@ class Node:
             self.connections.append(other_node)
             other_node.connections.append(self)
 
-    def draw(self, screen):
-        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
+    def draw(self, screen, camera_offset):
+        pygame.draw.circle(screen, self.color, (self.x - camera_offset[0], self.y - camera_offset[1]), self.radius)
         for node in self.connections:
-            pygame.draw.line(screen, (255, 255, 255), (self.x, self.y), (node.x, node.y))
+            pygame.draw.line(screen, (255, 255, 255), 
+                             (self.x - camera_offset[0], self.y - camera_offset[1]), 
+                             (node.x - camera_offset[0], node.y - camera_offset[1]))
 
     def is_hovered(self, pos):
         return (self.x - pos[0]) ** 2 + (self.y - pos[1]) ** 2 < self.radius ** 2
@@ -187,18 +171,25 @@ class Node:
     def is_connected(self, other_node):
         return other_node in self.connections
 
-class Map():
+class Map:
     def __init__(self):
-        start_node = Node(screen_width // 2, screen_height // 6)
-        first_node = Node(screen_width //2, screen_height //5)
+        start_node = Node(screen_width // 2, screen_height // 7)
+        first_node = Node(screen_width // 2, screen_height // 5)
         start_node.connect(first_node)
-        self.nodes = nodes = [start_node, first_node]
+        self.nodes = [start_node, first_node]
         self.current_node = start_node
         self.current_node.color = (0, 255, 0)
         self.visited_nodes = {start_node}
-    
+        self.camera_offset = [0, 0]
+        self.target_camera_offset = [0, 0]
+
+    def lerp(self, start, end, t):
+        return start + t * (end - start)
+
     def map_loop(self):
         running = True
+        clock = pygame.time.Clock()  # Initialize the clock
+
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -206,7 +197,7 @@ class Map():
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
                     for node in self.nodes:
-                        if (node.is_hovered(mouse_pos) and
+                        if (node.is_hovered((mouse_pos[0] + self.camera_offset[0], mouse_pos[1] + self.camera_offset[1])) and
                                 self.current_node.is_connected(node) and
                                 node not in self.visited_nodes):
                             self.current_node.color = (255, 255, 255)
@@ -215,34 +206,40 @@ class Map():
                             self.visited_nodes.add(self.current_node)
                             new_nodes = create_nodes(self.current_node)
                             self.nodes.extend(new_nodes)
+                            self.update_camera()
 
             mouse_pos = pygame.mouse.get_pos()
+            screen.fill(black)  # Fill the screen with black
 
-            screen.fill((0, 0, 0))  # Fill the screen with black
-
-            # Draw the nodes
             for node in self.nodes:
-                if node.is_hovered(mouse_pos) and self.current_node.is_connected(node) and node not in self.visited_nodes:
+                if node.is_hovered((mouse_pos[0] + self.camera_offset[0], mouse_pos[1] + self.camera_offset[1])) and self.current_node.is_connected(node) and node not in self.visited_nodes:
                     node.color = (255, 0, 0)
                 elif node == self.current_node:
                     node.color = (0, 255, 0)
                 else:
                     node.color = (255, 255, 255)
-                node.draw(screen)
+                node.draw(screen, self.camera_offset)
 
             pygame.display.flip()
 
+            self.camera_offset[0] = self.lerp(self.camera_offset[0], self.target_camera_offset[0], 0.1)
+            self.camera_offset[1] = self.lerp(self.camera_offset[1], self.target_camera_offset[1], 0.1)
+
+            clock.tick(60)  # Maintain 60 FPS
+
+    def update_camera(self):
+        self.target_camera_offset[0] = self.current_node.x - screen_width // 2
+        self.target_camera_offset[1] = self.current_node.y - screen_height // 2
 
 def create_nodes(current_node, max_nodes=3):
     level = current_node.level + 1
     new_nodes = []
     num_new_nodes = random.randint(1, max_nodes)  # 1 to 3 new nodes
 
-    for i in range(num_new_nodes):
+    for _ in range(num_new_nodes):
         x_offset = random.randint(-100, 100)
         y = screen_height // 6 + level * screen_height // 6
         x = current_node.x + x_offset
-        # Ensure x is within screen bounds
         x = max(min(x, screen_width - 50), 50)
         new_node = Node(x, y, level)
         current_node.connect(new_node)
@@ -250,15 +247,9 @@ def create_nodes(current_node, max_nodes=3):
 
     return new_nodes
 
-#endregion
-
-#region enemy stuff
-
 class Slime(Enemy):
-    def __init__(self, name = "Slime", health = 20, damage = 5, block = 0):
+    def __init__(self, name="Slime", health=20, damage=5, block=0):
         super().__init__(name, health, damage, block)
 
-
-#endregion
-
-main_menu()
+if __name__ == "__main__":
+    main_menu()
