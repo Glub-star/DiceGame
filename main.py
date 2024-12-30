@@ -54,11 +54,6 @@ class Dice:
     def roll(self):
         return random.choice(self.values)
 
-class DicePlayer(Player):
-    def __init__(self, health, name="Player"):
-        super().__init__(health, name)
-        self.dice = [Dice() for _ in range(3)]
-
 class Button:
     def __init__(self, text, x, y, width, height, inactive_color=grey, active_color=light_grey, action=None):
         self.text = text
@@ -85,6 +80,68 @@ class Button:
                 if self.action:
                     self.action()
 
+# region bluprint instances
+class DicePlayer(Player):
+    def __init__(self, health, name="Player"):
+        super().__init__(health, name)
+        self.dice = [Dice() for _ in range(3)]
+        self.dice_results = self.roll_die()
+        self.Dice_Displays = None
+
+        # loop stuff
+        self.dragging = None
+        self.offset_x = 0
+        self.offset_y = 0
+    
+    def new_turn(self, player_ui_section):
+
+        dice_width = player_ui_section.width // len(self.dice_results) / 4
+
+        self.dice_results = self.roll_die()
+        self.Dice_Displays = []
+
+        for i in range(len(self.dice)):
+            # Create the backgorund for the text, then text for the rect
+            self.Dice_Displays.append([
+                pygame.Rect(player_ui_section.x + i * dice_width + (dice_width // 4), player_ui_section.y + (player_ui_section.height // 2) - 18, dice_width, dice_width), 
+                font.render(str(self.dice_results[i]), True, (255,255,255))]
+            )
+
+    def draw_turn(self, player_ui_section):
+
+        for i in self.Dice_Displays:
+            pygame.draw.rect(screen,(20,20,20), i[0])
+            screen.blit(i[1], i[0].topleft)
+        
+        # Update the display after drawing the text
+        pygame.display.flip()
+
+    def turn_logic(self,events):
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                for rect in self.Dice_Displays:
+                    if rect[0].collidepoint(event.pos):
+                        self.dragging = rect
+                        self.offset_x = rect[0].x - event.pos[0]
+                        self.offset_y = rect[0].y - event.pos[1]
+                        break
+            if event.type == pygame.MOUSEMOTION and self.dragging:
+                self.dragging[0].x = event.pos[0] + self.offset_x
+                self.dragging[0].y = event.pos[1] + self.offset_y
+            if event.type == pygame.MOUSEBUTTONUP:
+                self.dragging = None
+
+
+    def roll_die(self):
+        return [die.roll() for die in self.dice]
+    
+class Slime(Enemy):
+    def __init__(self, name="Slime", health=20, damage=5, block=0):
+        super().__init__(name, health, damage, block)
+
+# endregion
+
+# region main menu
 def main_menu():
     def start_game():
         print("Start Game")
@@ -144,6 +201,9 @@ def character_selection(character_selected):
 
         pygame.display.flip()
 
+#endregion
+
+#region map sht
 class Node:
     def __init__(self, x, y, level=0):
         self.x = x
@@ -152,6 +212,11 @@ class Node:
         self.connections = []
         self.radius = 10
         self.color = (255, 255, 255)
+        self.type = random.randint(1,1)
+        self.hover_colour = (255,56,152)
+        match self.type:
+            case 1:
+                self.hover_colour = (red) # Red ← Enemy Node
 
     def connect(self, other_node):
         if other_node not in self.connections:
@@ -204,7 +269,7 @@ class Map:
                             self.current_node = node
                             self.current_node.color = (0, 255, 0)
                             self.visited_nodes.add(self.current_node)
-                            new_nodes = create_nodes(self.current_node)
+                            new_nodes = create_nodes(self.current_node, screen_width,screen_height)
                             self.nodes.extend(new_nodes)
                             self.update_camera()
 
@@ -231,25 +296,67 @@ class Map:
         self.target_camera_offset[0] = self.current_node.x - screen_width // 2
         self.target_camera_offset[1] = self.current_node.y - screen_height // 2
 
-def create_nodes(current_node, max_nodes=3):
+def create_nodes(current_node, screen_width, screen_height, max_nodes=3, radius=10):
+    def is_overlapping(x, y, nodes, radius):
+        for node in nodes:
+            if ((x - node.x) ** 2 + (y - node.y) ** 2) ** 0.5 < 2 * radius:
+                return True
+        return False
+
     level = current_node.level + 1
     new_nodes = []
     num_new_nodes = random.randint(1, max_nodes)  # 1 to 3 new nodes
 
     for _ in range(num_new_nodes):
-        x_offset = random.randint(-100, 100)
-        y = screen_height // 6 + level * screen_height // 6
-        x = current_node.x + x_offset
-        x = max(min(x, screen_width - 50), 50)
+        while True:
+            x_offset = random.randint(-100, 100)
+            y = screen_height // 6 + level * screen_height // 6
+            x = current_node.x + x_offset
+            x = max(min(x, screen_width - radius), radius)
+            if not is_overlapping(x, y, new_nodes + current_node.connections, radius):
+                break
+
         new_node = Node(x, y, level)
         current_node.connect(new_node)
         new_nodes.append(new_node)
 
     return new_nodes
 
-class Slime(Enemy):
-    def __init__(self, name="Slime", health=20, damage=5, block=0):
-        super().__init__(name, health, damage, block)
+#endregion
+
+#region game screens
+def enemy_screen(player:Player,enemy:Enemy = Slime()):
+    PADDING = 20
+    OFFSET_FROM_BOTTOM = 10
+    player_ui_section_width = (4/5) * screen.get_width() - 2 * PADDING
+    player_ui_section_height = (1/3) * screen.get_height()
+    player_ui_section_x = (screen.get_width() - player_ui_section_width) / 2
+    player_ui_section_y = screen.get_height() - player_ui_section_height - OFFSET_FROM_BOTTOM
+
+    player_ui_section_rect = pygame.Rect(player_ui_section_x, player_ui_section_y, player_ui_section_width, player_ui_section_height)
+
+    print(player_ui_section_width,player_ui_section_height,player_ui_section_x,player_ui_section_y)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        player_turn = True
+
+        player.new_turn(player_ui_section_rect)
+
+        while player_turn:
+            screen.fill((0, 0, 0))
+            pygame.draw.rect(screen, (10, 10, 10), player_ui_section_rect)
+            player.draw_turn(player_ui_section_rect)
+            player.turn_logic(pygame.event.get())
+
+            pygame.display.flip()
+#endregion
 
 if __name__ == "__main__":
-    main_menu()
+    player = DicePlayer(100)
+    enemy_screen(player)
+    #main_menu()
