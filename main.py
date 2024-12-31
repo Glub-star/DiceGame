@@ -3,8 +3,9 @@ import random
 import sys
 from functools import partial
 
-#AHAAHA
+#AHAAHA ← globals
 player_turn = False
+game_map = None
 
 # Initialize Pygame
 pygame.init()
@@ -12,7 +13,7 @@ pygame.init()
 # Screen dimensions
 screen_width = 800
 screen_height = 600
-screen = pygame.display.set_mode((screen_width, screen_height))
+screen = pygame.display.set_mode((screen_width, screen_height), pygame.SCALED)
 pygame.display.set_caption("Main Menu")
 
 # Colors
@@ -24,6 +25,8 @@ dark_grey = (50,50,50)
 blue = (0, 0, 255)
 red = (255, 0, 0)
 green = (0,255,0)
+dark_gold = (212,175,55)
+light_gold = (255,223,0)
 
 # Fonts
 font = pygame.font.SysFont("Arial", 40)
@@ -184,6 +187,7 @@ class Slime(Enemy):
 # region main menu
 def main_menu():
     def start_game():
+        global game_map
         print("Start Game")
         character_selected = None
         character_selection(character_selected)
@@ -199,11 +203,12 @@ def main_menu():
 
     running = True
     while running:
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        for event in events:
             if event.type == pygame.QUIT:
                 running = False
-            start_button.is_clicked(event)
-            quit_button.is_clicked(event)
+        start_button.is_clicked(events)
+        quit_button.is_clicked(events)
         
         screen.fill(black)
         start_button.draw(screen)
@@ -232,12 +237,12 @@ def character_selection(character_selected):
         screen.fill(white)
         dice_button.draw(screen)
         locked_button.draw(screen)
-
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        for event in events:
             if event.type == pygame.QUIT:
                 running = False
-            dice_button.is_clicked(event)
-            locked_button.is_clicked(event)
+            dice_button.is_clicked(events)
+            locked_button.is_clicked(events)
 
         pygame.display.flip()
 
@@ -294,6 +299,7 @@ class Map:
     def map_loop(self):
         running = True
         clock = pygame.time.Clock()  # Initialize the clock
+        lerp_completed = False  
 
         while running:
             for event in pygame.event.get():
@@ -304,7 +310,7 @@ class Map:
                     for node in self.nodes:
                         if (node.is_hovered((mouse_pos[0] + self.camera_offset[0], mouse_pos[1] + self.camera_offset[1])) and
                                 self.current_node.is_connected(node) and
-                                node not in self.visited_nodes):
+                                node not in self.visited_nodes and lerp_completed):
                             self.current_node.color = (255, 255, 255)
                             self.current_node = node
                             self.current_node.color = (0, 255, 0)
@@ -312,6 +318,7 @@ class Map:
                             new_nodes = create_nodes(self.current_node, screen_width,screen_height)
                             self.nodes.extend(new_nodes)
                             self.update_camera()
+                            lerp_completed = False
 
             mouse_pos = pygame.mouse.get_pos()
             screen.fill(black)  # Fill the screen with black
@@ -329,6 +336,15 @@ class Map:
 
             self.camera_offset[0] = self.lerp(self.camera_offset[0], self.target_camera_offset[0], 0.1)
             self.camera_offset[1] = self.lerp(self.camera_offset[1], self.target_camera_offset[1], 0.1)
+
+            if (abs(self.camera_offset[0] - self.target_camera_offset[0]) < 0.1 and
+                abs(self.camera_offset[1] - self.target_camera_offset[1]) < 0.1):
+                self.camera_offset = self.target_camera_offset.copy()
+                if not lerp_completed:
+                    print("Active Node, lerp complete")  # Trigger event_x when lerp is done
+                    if self.current_node.type == 1:
+                        enemy_screen(player)
+                    lerp_completed = True 
 
             clock.tick(60)  # Maintain 60 FPS
 
@@ -367,14 +383,28 @@ def create_nodes(current_node, screen_width, screen_height, max_nodes=3, radius=
 #region game screens
 def rewards_screen(player:Player, coins:int = 0, Dice:int = 0, DiceUpgrades:int = 0):
     running = True
-    background_rect = pygame.Rect(screen_width/3,50,screen_width/3,screen_height - 100)
+    background_rect = pygame.Rect(screen_width/3,120,screen_width/3,screen_height - 200)
+    rewards_text = font.render("Rewards", True, light_grey)
+
+
+    button_height = 50
+    padding_dist_w = 10
+    button_width = screen_width/3 - padding_dist_w * 2
+    padding_dist_y = 100
+    button_padding_y =10
+
+    buttons = []
 
     def add_gold():
         nonlocal player
         nonlocal coins
         player.coins += coins
-
-    add_gold_button = Button()
+    
+    def Back_to_map():
+        game_map.map_loop()
+    
+    if coins > 0:
+        buttons.append(Button(f"{coins} coins", screen_width/3+padding_dist_w, 50+padding_dist_y+ button_height*len(buttons)+button_padding_y * len(buttons), button_width,button_height, dark_gold, light_gold))
 
     while running:
         for event in pygame.event.get():
@@ -382,12 +412,16 @@ def rewards_screen(player:Player, coins:int = 0, Dice:int = 0, DiceUpgrades:int 
         
         screen.fill((0,0,0))
         
+        screen.blit(rewards_text, (screen.get_width()//2-rewards_text.get_width(),50))
         pygame.draw.rect(screen, dark_grey, background_rect)
+        for button in buttons:
+            button.draw(screen)
         
-        pygame.display.update()
+        pygame.display.flip()
 
-
-def enemy_screen(player:Player,enemy:Enemy = Slime()):
+def enemy_screen(player:Player,enemy:Enemy = None):
+    if enemy == None:
+        enemy = Slime()
     PADDING = 20
     OFFSET_FROM_BOTTOM = 10
     player_ui_section_width = (4/5) * screen.get_width() - 2 * PADDING
@@ -441,5 +475,6 @@ def enemy_screen(player:Player,enemy:Enemy = Slime()):
 
 if __name__ == "__main__":
     player = DicePlayer(100)
-    rewards_screen(player)
-    #main_menu()
+    #enemy_screen(player)
+    #rewards_screen(player,coins = 10)
+    main_menu()
