@@ -92,6 +92,7 @@ class DicePlayer(Player):
         self.dragging = None
         self.offset_x = 0
         self.offset_y = 0
+        self.rects_to_draw = 0
     
     def new_turn(self, player_ui_section):
 
@@ -107,7 +108,11 @@ class DicePlayer(Player):
                 font.render(str(self.dice_results[i]), True, (255,255,255))]
             )
 
-    def draw_turn(self, player_ui_section):
+    def draw_turn(self, player_ui_section:pygame.Rect):
+
+        self.attack_rect = pygame.Rect(*player_ui_section.midleft, player_ui_section.width // 6, player_ui_section.width //6)
+
+        pygame.draw.rect(screen, (150,10,10), self.attack_rect)
 
         for i in self.Dice_Displays:
             pygame.draw.rect(screen,(20,20,20), i[0])
@@ -350,6 +355,7 @@ def enemy_screen(player:Player,enemy:Enemy = Slime()):
         while player_turn:
             screen.fill((0, 0, 0))
             pygame.draw.rect(screen, (10, 10, 10), player_ui_section_rect)
+
             player.draw_turn(player_ui_section_rect)
             player.turn_logic(pygame.event.get())
 
