@@ -1,6 +1,10 @@
 import pygame
 import random
 import sys
+from functools import partial
+
+#AHAAHA
+player_turn = False
 
 # Initialize Pygame
 pygame.init()
@@ -16,8 +20,10 @@ white = (255, 255, 255)
 black = (0, 0, 0)
 grey = (200, 200, 200)
 light_grey = (170, 170, 170)
+dark_grey = (50,50,50)
 blue = (0, 0, 255)
 red = (255, 0, 0)
+green = (0,255,0)
 
 # Fonts
 font = pygame.font.SysFont("Arial", 40)
@@ -27,6 +33,7 @@ class Player:
     def __init__(self, health, name="Player"):
         self.health = health
         self.name = name
+        self.coins = 0
 
     def take_damage(self, damage):
         damage_taken = max(0, damage - self.block)
@@ -35,6 +42,7 @@ class Player:
 class Enemy:
     def __init__(self, name="Enemy", health=20, damage=5, block=0, sprite=pygame.image.load("./assets/MissingTexture.png")):
         self.name = name
+        self.max_health = health
         self.health = health
         self.damage = damage
         self.block = block
@@ -74,11 +82,27 @@ class Button:
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
 
-    def is_clicked(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.rect.collidepoint(event.pos):
-                if self.action:
-                    self.action()
+    def is_clicked(self, events):
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self.rect.collidepoint(event.pos):
+                    if self.action:
+                        self.action()
+
+def draw_health_bar(surface, current_health, max_health, position, size=tuple):
+    x, y = position
+    width, height = size
+    health_ratio = current_health / max_health
+
+    # Background
+    pygame.draw.rect(surface, red, (x, y, width, height))
+
+    # Foreground (current health)
+    pygame.draw.rect(surface, green, (x, y, width * health_ratio, height))
+
+    # Border76
+    pygame.draw.rect(surface, white, (x, y, width, height), 2)
+
 
 # region bluprint instances
 class DicePlayer(Player):
@@ -95,18 +119,21 @@ class DicePlayer(Player):
         self.rects_to_draw = 0
     
     def new_turn(self, player_ui_section):
-
-        dice_width = player_ui_section.width // len(self.dice_results) / 4
-
         self.dice_results = self.roll_die()
+        dice_width = player_ui_section.width // len(self.dice_results) * 0.25
+
         self.Dice_Displays = []
 
         for i in range(len(self.dice)):
-            # Create the backgorund for the text, then text for the rect
-            self.Dice_Displays.append([
-                pygame.Rect(player_ui_section.x + i * dice_width + (dice_width // 4), player_ui_section.y + (player_ui_section.height // 2) - 18, dice_width, dice_width), 
-                font.render(str(self.dice_results[i]), True, (255,255,255))]
+            # Create the background for the text, then text for the rect
+            rect = pygame.Rect(
+                player_ui_section.x + i * dice_width + (dice_width // 4),
+                player_ui_section.y + (player_ui_section.height // 2) - 18,
+                dice_width,
+                dice_width
             )
+            text = font.render(str(self.dice_results[i]), True, (255, 255, 255))
+            self.Dice_Displays.append([rect, text, self.dice_results[i]])
 
     def draw_turn(self, player_ui_section:pygame.Rect):
 
@@ -117,11 +144,8 @@ class DicePlayer(Player):
         for i in self.Dice_Displays:
             pygame.draw.rect(screen,(20,20,20), i[0])
             screen.blit(i[1], i[0].topleft)
-        
-        # Update the display after drawing the text
-        pygame.display.flip()
 
-    def turn_logic(self,events):
+    def turn_logic(self, events, enemy):
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 for rect in self.Dice_Displays:
@@ -130,16 +154,27 @@ class DicePlayer(Player):
                         self.offset_x = rect[0].x - event.pos[0]
                         self.offset_y = rect[0].y - event.pos[1]
                         break
+
             if event.type == pygame.MOUSEMOTION and self.dragging:
                 self.dragging[0].x = event.pos[0] + self.offset_x
                 self.dragging[0].y = event.pos[1] + self.offset_y
-            if event.type == pygame.MOUSEBUTTONUP:
+
+            if event.type == pygame.MOUSEBUTTONUP and self.dragging:
+                if self.dragging[0].colliderect(self.attack_rect):
+                    # Damage the enemy based on the dice value
+                    damage = self.dragging[2]
+                    enemy.take_damage(damage)
+
+                    # Remove the dice from the displays and results
+                    self.dice_results.remove(damage)
+                    self.Dice_Displays.remove(self.dragging)
                 self.dragging = None
+                
 
 
     def roll_die(self):
         return [die.roll() for die in self.dice]
-    
+
 class Slime(Enemy):
     def __init__(self, name="Slime", health=20, damage=5, block=0):
         super().__init__(name, health, damage, block)
@@ -330,6 +365,28 @@ def create_nodes(current_node, screen_width, screen_height, max_nodes=3, radius=
 #endregion
 
 #region game screens
+def rewards_screen(player:Player, coins:int = 0, Dice:int = 0, DiceUpgrades:int = 0):
+    running = True
+    background_rect = pygame.Rect(screen_width/3,50,screen_width/3,screen_height - 100)
+
+    def add_gold():
+        nonlocal player
+        nonlocal coins
+        player.coins += coins
+
+    add_gold_button = Button()
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT: running = False
+        
+        screen.fill((0,0,0))
+        
+        pygame.draw.rect(screen, dark_grey, background_rect)
+        
+        pygame.display.update()
+
+
 def enemy_screen(player:Player,enemy:Enemy = Slime()):
     PADDING = 20
     OFFSET_FROM_BOTTOM = 10
@@ -339,10 +396,19 @@ def enemy_screen(player:Player,enemy:Enemy = Slime()):
     player_ui_section_y = screen.get_height() - player_ui_section_height - OFFSET_FROM_BOTTOM
 
     player_ui_section_rect = pygame.Rect(player_ui_section_x, player_ui_section_y, player_ui_section_width, player_ui_section_height)
+    enmey_size = pygame.transform.scale(enemy.sprite, (128,128))
 
     print(player_ui_section_width,player_ui_section_height,player_ui_section_x,player_ui_section_y)
 
+    player_turn = False
+
     running = True
+    def new_turn():
+        nonlocal player_turn
+        player_turn = False
+        print("New turn")
+
+    new_turn_button = Button("End Turn",player_ui_section_rect.right-100,player_ui_section_rect.top,100,40,(50,50,50),(150,150,150), new_turn)
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -353,16 +419,27 @@ def enemy_screen(player:Player,enemy:Enemy = Slime()):
         player.new_turn(player_ui_section_rect)
 
         while player_turn:
+            events = pygame.event.get()
+            new_turn_button.is_clicked(events)
+
             screen.fill((0, 0, 0))
             pygame.draw.rect(screen, (10, 10, 10), player_ui_section_rect)
+            new_turn_button.draw(screen)
 
             player.draw_turn(player_ui_section_rect)
-            player.turn_logic(pygame.event.get())
-
+            player.turn_logic(events,enemy)
+            
+            #draw enemy
+            screen.blit(enmey_size, (screen_width//2-128//2,screen_height//3-128//2))
+            draw_health_bar(screen,enemy.health,enemy.max_health,(screen_width//2-64, screen_height//2),(128,32))
             pygame.display.flip()
+        
+        if enemy.health <= 0:
+            running = False
+
 #endregion
 
 if __name__ == "__main__":
     player = DicePlayer(100)
-    enemy_screen(player)
+    rewards_screen(player)
     #main_menu()
