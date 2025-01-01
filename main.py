@@ -33,17 +33,20 @@ font = pygame.font.SysFont("Arial", 40)
 
 # Blueprints
 class Player:
-    def __init__(self, health, name="Player"):
+    def __init__(self, health, name="Player", sprite:pygame.Surface = pygame.image.load("./assets/MissingTexture.png")):
         self.health = health
+        self.max_health = health
         self.name = name
         self.coins = 0
+        self.sprite = sprite
+        self.block = 0
 
     def take_damage(self, damage):
         damage_taken = max(0, damage - self.block)
         self.health -= damage_taken
 
 class Enemy:
-    def __init__(self, name="Enemy", health=20, damage=5, block=0, sprite=pygame.image.load("./assets/MissingTexture.png")):
+    def __init__(self, name="Enemy", health=20, damage=5, block=0, sprite:pygame.Surface=pygame.image.load("./assets/MissingTexture.png")):
         self.name = name
         self.max_health = health
         self.health = health
@@ -436,9 +439,12 @@ def enemy_screen(player:Player,enemy:Enemy = None):
     player_ui_section_y = screen.get_height() - player_ui_section_height - OFFSET_FROM_BOTTOM
 
     player_ui_section_rect = pygame.Rect(player_ui_section_x, player_ui_section_y, player_ui_section_width, player_ui_section_height)
-    enmey_size = pygame.transform.scale(enemy.sprite, (128,128))
 
-    print(player_ui_section_width,player_ui_section_height,player_ui_section_x,player_ui_section_y)
+    enmey_size = pygame.transform.scale(enemy.sprite, (128,128))
+    enemy_name_text = font.render(f"{enemy.name}", True, red)
+
+    player_size = pygame.transform.scale(player.sprite, (128,128))
+    player_name_text = font.render("You", True, green)
 
     player_turn = False
 
@@ -466,14 +472,23 @@ def enemy_screen(player:Player,enemy:Enemy = None):
             pygame.draw.rect(screen, (10, 10, 10), player_ui_section_rect)
             new_turn_button.draw(screen)
 
+            # draw player stuff
             player.draw_turn(player_ui_section_rect)
             player.turn_logic(events,enemy)
+            screen.blit(player_size, (screen_width//3-128, screen_height//3-128//2))
+            screen.blit(player_name_text, ((screen_width // 3) - (100), screen_height/3-128)) # 100 is temporary untill i fugure out why it isnt working properly
+            draw_health_bar(screen, player.health, player.max_health, (screen_width //3 - 128, screen_height//2),(128,32))
             
+            #player_name_text.get_width() // 2
+
             #draw enemy
-            screen.blit(enmey_size, (screen_width//2-128//2,screen_height//3-128//2))
-            draw_health_bar(screen,enemy.health,enemy.max_health,(screen_width//2-64, screen_height//2),(128,32))
+            screen.blit(enmey_size, (2*screen_width//3-128//2,screen_height//3-128//2))
+            screen.blit(enemy_name_text, ((2*screen_width // 3) - (enemy_name_text.get_width() // 2), screen_height/3-128))
+            draw_health_bar(screen,enemy.health,enemy.max_health, (2*screen_width//3-64, screen_height//2),(128,32))
+
             pygame.display.flip()
-        
+
+        player.take_damage(enemy.damage)
         if enemy.health <= 0:
             running = False
 
