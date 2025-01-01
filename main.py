@@ -103,9 +103,15 @@ def draw_health_bar(surface, current_health, max_health, position, size=tuple):
     # Foreground (current health)
     pygame.draw.rect(surface, green, (x, y, width * health_ratio, height))
 
-    # Border76
+    # Border
     pygame.draw.rect(surface, white, (x, y, width, height), 2)
 
+    font = pygame.font.Font(None, 36)  # Use default font, size 36
+    health_text = f"{max(current_health,0)}/{max_health}"
+    text_surface = font.render(health_text, True, (255, 255, 255))  # white text
+    text_rect = text_surface.get_rect(center=(x + width // 2, y + height // 2))
+    
+    surface.blit(text_surface, text_rect)
 
 # region bluprint instances
 class DicePlayer(Player):
@@ -475,6 +481,6 @@ def enemy_screen(player:Player,enemy:Enemy = None):
 
 if __name__ == "__main__":
     player = DicePlayer(100)
-    #enemy_screen(player)
+    enemy_screen(player)
     #rewards_screen(player,coins = 10)
-    main_menu()
+    #main_menu()
