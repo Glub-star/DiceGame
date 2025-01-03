@@ -157,7 +157,12 @@ class DicePlayer(Player):
             pygame.draw.rect(screen,(20,20,20), i[0])
             screen.blit(i[1], i[0].topleft)
 
-    def turn_logic(self, events, enemy):
+    def turn_logic(self, events,enemy_rect:pygame.Surface, enemy:Enemy,enemy_pos,
+    player_rect:pygame.Surface, player:Player, player_pos):
+        enemy_rect = enemy_rect.get_rect()
+        enemy_rect.topleft = 2*screen_width//3-128//2,screen_height//3-128//2
+        player_rect = player_rect.get_rect()
+        player_rect.topleft = player_pos
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 for rect in self.Dice_Displays:
@@ -172,7 +177,7 @@ class DicePlayer(Player):
                 self.dragging[0].y = event.pos[1] + self.offset_y
 
             if event.type == pygame.MOUSEBUTTONUP and self.dragging:
-                if self.dragging[0].colliderect(self.attack_rect):
+                if self.dragging[0].colliderect(enemy_rect):
                     # Damage the enemy based on the dice value
                     damage = self.dragging[2]
                     enemy.take_damage(damage)
@@ -180,8 +185,11 @@ class DicePlayer(Player):
                     # Remove the dice from the displays and results
                     self.dice_results.remove(damage)
                     self.Dice_Displays.remove(self.dragging)
+                if self.dragging[0].colliderect(player_rect):
+                    player.take_damage(-self.dragging[2])
+                    self.dice_results.remove(self.dragging[2])
+                    self.Dice_Displays.remove(self.dragging)
                 self.dragging = None
-                
 
 
     def roll_die(self):
@@ -442,9 +450,11 @@ def enemy_screen(player:Player,enemy:Enemy = None):
 
     enmey_size = pygame.transform.scale(enemy.sprite, (128,128))
     enemy_name_text = font.render(f"{enemy.name}", True, red)
+    enemy_pos = (2*screen_width//3-128//2,screen_height//3-128//2)
 
     player_size = pygame.transform.scale(player.sprite, (128,128))
     player_name_text = font.render("You", True, green)
+    player_pos = (screen_width//3-128, screen_height//3-128//2)
 
     player_turn = False
 
@@ -472,19 +482,22 @@ def enemy_screen(player:Player,enemy:Enemy = None):
             pygame.draw.rect(screen, (10, 10, 10), player_ui_section_rect)
             new_turn_button.draw(screen)
 
-            # draw player stuff
-            player.draw_turn(player_ui_section_rect)
-            player.turn_logic(events,enemy)
-            screen.blit(player_size, (screen_width//3-128, screen_height//3-128//2))
+            
+
+            screen.blit(player_size, player_pos)
             screen.blit(player_name_text, ((screen_width // 3) - (100), screen_height/3-128)) # 100 is temporary untill i fugure out why it isnt working properly
             draw_health_bar(screen, player.health, player.max_health, (screen_width //3 - 128, screen_height//2),(128,32))
             
             #player_name_text.get_width() // 2
 
             #draw enemy
-            screen.blit(enmey_size, (2*screen_width//3-128//2,screen_height//3-128//2))
+            screen.blit(enmey_size, enemy_pos)
             screen.blit(enemy_name_text, ((2*screen_width // 3) - (enemy_name_text.get_width() // 2), screen_height/3-128))
             draw_health_bar(screen,enemy.health,enemy.max_health, (2*screen_width//3-64, screen_height//2),(128,32))
+
+            # draw player stuff
+            player.draw_turn(player_ui_section_rect)
+            player.turn_logic(events,enmey_size,enemy,enemy_pos,player_size,player,player_pos)
 
             pygame.display.flip()
 
